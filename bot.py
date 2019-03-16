@@ -14,8 +14,9 @@ client = commands.Bot(command_prefix = '!')
 @client.event
 # Prints to console that it's ready, has full functionality.
 # Function will run reagardless of what the bot is doing at the time.
+# Sets bot 'presence' in Discord  "BotName playing name='your message'"
 async def on_ready():
-    await client.change_presence(game=discord.Game(name='!commands'))
+    await client.change_presence(game=discord.Game(name='!command'))
     print(client.user.name + ' is ready to chooch.')
 
 @client.event
@@ -26,11 +27,16 @@ async def on_member_join(member):
     await client.add_roles(member, role)
 
 @client.command()
-async def commands():
-    await client.say('!commands - Displays this list\n'
-                   + '!ping - Pong!\n'
-                   + '!clear - Clears the chat\n'
-                   + '!play - Plays a clip from Youtube')
+async def command():
+    embed = discord.Embed(
+        title = "Here's how you can use the bot:",
+        color = discord.Color.gold()
+    )
+    embed.add_field(name='!command', value='Displays this list', inline=False)
+    embed.add_field(name='!ping', value='Pong!', inline=False)
+    embed.add_field(name='!clear', value='Clears the chat', inline=False)
+    embed.add_field(name='!play', value='Plays a clip from Youtube', inline=False)
+    await client.say(embed=embed)
 
 @client.command()
 async def ping():
