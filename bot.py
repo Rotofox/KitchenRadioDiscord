@@ -1,5 +1,6 @@
 import discord, asyncio, ytsearch
 from discord.ext import commands
+from discord import message
 
 # Change with your TOKEN found in your Discord Application Page
 TOKEN = 'NTUyODU4OTY0NTA1Nzg4NDM2.D2FrVg.tfvKUUmpX2NXnptPucDBlFzMlwo'
@@ -11,6 +12,7 @@ with the prefix stated here. (!play, !stop)
 client = commands.Bot(command_prefix = '!')
 client.remove_command('help') #removes the default help command; requires implemenentation of custom help command
 players = {}
+queues = {}
 youtube = ytsearch.Search
 
 @asyncio.coroutine
@@ -47,12 +49,49 @@ async def play(ctx, *, query):
     options = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 10" # this fucker took me a while 'cause links expire and music stops :(
     query = youtube.findvid(query)
     server = ctx.message.server
-    channel = ctx.message.author.voice.voice_channel
-    await client.join_voice_channel(channel)
+    author = ctx.message.author
+    channelVoice = ctx.message.author.voice.voice_channel
+    await client.join_voice_channel(channelVoice)
     voice_client = client.voice_client_in(server)
     player = await voice_client.create_ytdl_player(query, before_options = options)
     players[server.id] = player
+    embed = discord.Embed(
+        colour = discord.Color.gold()
+    )
+    embed.set_author(name = player.title)
+    embed.add_field(name = 'Duration: ' + str(player.duration) + ' seconds.', value = 'Views: ' + str(player.views), inline = True)
+    await client.say(embed=embed)
     player.start()
+
+# Pause command for player
+@client.command(pass_context=True)
+async def pause(ctx):
+    id = ctx.message.server.id
+    players[id].pause()
+
+# Resume command for player
+@client.command(pass_context=True)
+async def resume(ctx):
+    id = ctx.message.server.id
+    players[id].resume()
+
+# Stop command for player
+@client.command(pass_context=True)
+async def stop(ctx):
+    id = ctx.message.server.id
+    players[id].stop()
+
+# Queue for multiple players; TODO implement in play function
+@client.command(pass_context=True)
+async def queue(ctx, url):
+    server = ctx.message.server
+    voice_client = client.voice_client_in(server)
+    player = await voice_client.create_ytdl_player(url)
+    if server.id in queues:
+        queues[server.id].append(player)
+    else:
+        queues[server.id] = [player]
+    await client.say('Video queued...')
 
 # Sends a private message containing the bot commands list to the user who imputted the command
 @client.command(pass_context=True)
