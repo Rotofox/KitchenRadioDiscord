@@ -15,6 +15,12 @@ players = {}
 queues = {}
 youtube = ytsearch.Search
 
+def check_queue(id):
+    if queues[id] != []:
+        player = queues[id].pop(0)
+        players[id] = player
+        player.start()
+
 @asyncio.coroutine
 @client.event
 async def on_ready():
@@ -37,31 +43,43 @@ async def leave(ctx):
     await voice_client.disconnect()
 
 """
-Bot joins the voice channel the user issuing the command is in or joins the
-first voice channel on the server if the user isn't in any voice channel.
-A player is created and plays the audio the user searched for.
+Bot joins the voice channel the user issuing the command is in
+A player is created and plays the audio the user searched for or
+a player is created and put in queue if there's already a player active
     @args * - supports multiple strings divided my spaces
     @args query - string
     '!play mozart symphony 40 g minor'
 """
 @client.command(pass_context=True)
 async def play(ctx, *, query):
-    options = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 10" # this fucker took me a while 'cause links expire and music stops :(
+    options = "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 10"
+    author = ctx.message.author
     query = youtube.findvid(query)
     server = ctx.message.server
-    author = ctx.message.author
     channelVoice = ctx.message.author.voice.voice_channel
-    await client.join_voice_channel(channelVoice)
-    voice_client = client.voice_client_in(server)
-    player = await voice_client.create_ytdl_player(query, before_options = options)
-    players[server.id] = player
-    embed = discord.Embed(
-        colour = discord.Color.gold()
-    )
-    embed.set_author(name = player.title)
-    embed.add_field(name = 'Duration: ' + str(player.duration) + ' seconds.', value = 'Views: ' + str(player.views), inline = True)
-    await client.say(embed=embed)
-    player.start()
+    if not client.is_voice_connected(server):
+        await client.join_voice_channel(channelVoice)
+        voice_client = client.voice_client_in(server)
+        player = await voice_client.create_ytdl_player(query, before_options = options, after = lambda: check_queue(server.id))
+        player.start()
+        embed = discord.Embed(
+            color = discord.Color.gold()
+        )
+        embed.set_author(name = player.title)
+        await client.say(embed = embed)
+    else:
+        voice_client = client.voice_client_in(server)
+        player = await voice_client.create_ytdl_player(query, before_options = options, after = lambda: check_queue(server.id))
+        if server.id in queues:
+            queues[server.id].append(player)
+        else:
+            queues[server.id] = [player]
+        players[server.id] = player
+        embed = discord.Embed(
+            color = discord.Color.gold()
+        )
+        embed.set_author(name = player.title)
+        await client.say(author + ' has queued:', embed = embed)
 
 # Pause command for player
 @client.command(pass_context=True)
@@ -81,18 +99,6 @@ async def stop(ctx):
     id = ctx.message.server.id
     players[id].stop()
 
-# Queue for multiple players; TODO implement in play function
-@client.command(pass_context=True)
-async def queue(ctx, url):
-    server = ctx.message.server
-    voice_client = client.voice_client_in(server)
-    player = await voice_client.create_ytdl_player(url)
-    if server.id in queues:
-        queues[server.id].append(player)
-    else:
-        queues[server.id] = [player]
-    await client.say('Video queued...')
-
 # Sends a private message containing the bot commands list to the user who imputted the command
 @client.command(pass_context=True)
 async def help(ctx):
@@ -101,14 +107,15 @@ async def help(ctx):
         color = discord.Color.gold()
     )
     embed.set_author(name = 'Commands list:')
-    embed.add_field(name = '!help', value="PM's you the commands list", inline=False)
-    embed.add_field(name = '!clear', value='Clears the chat', inline=False)
-    embed.add_field(name = '!play', value='Plays a clip from Youtube', inline=False)
+    embed.add_field(name = '!help', value='PMs you the commands list.', inline=False)
+    embed.add_field(name = '!clear', value='Clears the chat.', inline=False)
+    embed.add_field(name = '!play', value='Plays a clip from Youtube. Control with !pause, !resume, !stop', inline=False)
+    embed.add_field(name = '!leave', value='Makes the bot leave the voice channel.')
     await client.send_message(author, embed=embed)
 
-# Deletes the specified number of messages in chat; '!clear 14' or '!clear' (default = 100)
+# Deletes the specified number of messages in chat; '!clear 14' or '!clear' (default = 10)
 @client.command(pass_context=True)
-async def clear(ctx, amount = 100):
+async def clear(ctx, amount = 10):
     channel = ctx.message.channel
     messages = []
     async for message in client.logs_from(channel, limit=int(amount) + 1):
@@ -117,4 +124,3 @@ async def clear(ctx, amount = 100):
     await client.say('Messages deleted')
 
 client.run(TOKEN)
-
