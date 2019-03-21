@@ -1,6 +1,5 @@
 import discord, asyncio, ytsearch
 from discord.ext import commands
-from discord import message
 
 # Change with your TOKEN found in your Discord Application Page
 TOKEN = 'NTUyODU4OTY0NTA1Nzg4NDM2.D2FrVg.tfvKUUmpX2NXnptPucDBlFzMlwo'
@@ -16,6 +15,15 @@ players = {}
 queues = {}
 youtube = ytsearch.Search
 
+# Automatically loads extensions at runtime
+if __name__ == '__main__':
+    for extension in extensions: 
+        try:
+            client.load_extension(extension)
+            print('Loaded {}'.format(extension))
+        except Exception as error:
+            print('{} cannot be loaded. [{}]'.format(extension, error))
+
 def check_queue(id):
     if queues[id] != []:
         player = queues[id].pop(0)
@@ -27,6 +35,16 @@ def check_queue(id):
 async def on_ready():
     await client.change_presence(game=discord.Game(name='!help'))
     print(client.user.name + ' is ready to chooch.')
+
+"""
+Assigns a role to a new user on the server
+Choose which role you want a new user to have    name='YOUR ROLE'
+"""
+@client.event
+async def on_member_join(member):
+    role =  discord.utils.get(member.server.roles, name='Veggie Cutter')
+    await client.add_roles(member, role)
+
 # Loads an extension
 @client.command()
 async def load(extension):
@@ -44,23 +62,6 @@ async def unload(extension):
         print('Unloaded {}'.format(extension))
     except Exception as error:
         print('{} cannot be unloaded. [{}]'.format(extension, error))
-
-# Automatically loads extensions at runtime
-if __name__ == '__main__':
-    for extension in extensions: 
-        try:
-            client.load_extensions(extension)
-        except Exception as error:
-            print('{} cannot be loaded. [{}]'.format(extension, error))
-
-"""
-Assigns a role to a new user on the server
-Choose which role you want a new user to have    name='YOUR ROLE'
-"""
-@client.event
-async def on_member_join(member):
-    role =  discord.utils.get(member.server.roles, name='Veggie Cutter')
-    await client.add_roles(member, role)
 
 # Disconnects the bot's voice client from the voice channel
 @client.command(pass_context=True)
@@ -88,12 +89,12 @@ async def play(ctx, *, query):
         await client.join_voice_channel(channelVoice)
         voice_client = client.voice_client_in(server)
         player = await voice_client.create_ytdl_player(query, before_options = options, after = lambda: check_queue(server.id))
-        player.start()
         embed = discord.Embed(
             color = discord.Color.gold()
         )
         embed.set_author(name = player.title)
         await client.say(embed = embed)
+        player.start()
     else:
         voice_client = client.voice_client_in(server)
         player = await voice_client.create_ytdl_player(query, before_options = options, after = lambda: check_queue(server.id))
@@ -102,7 +103,6 @@ async def play(ctx, *, query):
                 queues[server.id].append(player)
             else:
                 queues[server.id] = [player]
-            players[server.id] = player
             embed = discord.Embed(
                 color = discord.Color.gold()
             )
@@ -110,6 +110,7 @@ async def play(ctx, *, query):
             await client.say(author, embed = embed)
         else:
             player.start()
+    players[server.id] = player
 
 # Pause command for player
 @client.command(pass_context=True)
