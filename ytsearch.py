@@ -1,5 +1,6 @@
 import urllib.parse, urllib.request, re
 class Search():
+    
 # Searches youtube for string 'query' and plays the first result on the page
     def findvid(search):
         query_string = urllib.parse.urlencode({

@@ -11,6 +11,7 @@ with the prefix stated here. (!play, !stop)
 """
 client = commands.Bot(command_prefix = '!')
 client.remove_command('help') #removes the default help command; requires implemenentation of custom help command
+extensions = ['commands']
 players = {}
 queues = {}
 youtube = ytsearch.Search
@@ -26,6 +27,31 @@ def check_queue(id):
 async def on_ready():
     await client.change_presence(game=discord.Game(name='!help'))
     print(client.user.name + ' is ready to chooch.')
+# Loads an extension
+@client.command()
+async def load(extension):
+    try:
+        client.load_extension(extension)
+        print('Loaded {}'.format(extension))
+    except Exception as error:
+        print('{} cannot be loaded. [{}]'.format(extension, error))
+
+# Unloads an extension
+@client.command()
+async def unload(extension):
+    try:
+        client.unload_extension(extension)
+        print('Unloaded {}'.format(extension))
+    except Exception as error:
+        print('{} cannot be unloaded. [{}]'.format(extension, error))
+
+# Automatically loads extensions at runtime
+if __name__ == '__main__':
+    for extension in extensions: 
+        try:
+            client.load_extensions(extension)
+        except Exception as error:
+            print('{} cannot be loaded. [{}]'.format(extension, error))
 
 """
 Assigns a role to a new user on the server
@@ -36,6 +62,7 @@ async def on_member_join(member):
     role =  discord.utils.get(member.server.roles, name='Veggie Cutter')
     await client.add_roles(member, role)
 
+# Disconnects the bot's voice client from the voice channel
 @client.command(pass_context=True)
 async def leave(ctx):
     server = ctx.message.server
@@ -70,16 +97,19 @@ async def play(ctx, *, query):
     else:
         voice_client = client.voice_client_in(server)
         player = await voice_client.create_ytdl_player(query, before_options = options, after = lambda: check_queue(server.id))
-        if server.id in queues:
-            queues[server.id].append(player)
+        if player.is_playing == True:
+            if server.id in queues:
+                queues[server.id].append(player)
+            else:
+                queues[server.id] = [player]
+            players[server.id] = player
+            embed = discord.Embed(
+                color = discord.Color.gold()
+            )
+            embed.set_author(name = player.title)
+            await client.say(author, embed = embed)
         else:
-            queues[server.id] = [player]
-        players[server.id] = player
-        embed = discord.Embed(
-            color = discord.Color.gold()
-        )
-        embed.set_author(name = player.title)
-        await client.say(author + ' has queued:', embed = embed)
+            player.start()
 
 # Pause command for player
 @client.command(pass_context=True)
